@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+/* Focus outline: rely on Tailwind focus-visible rings via utilities. */
+
+body {
+  background: #0b1220;
+  color: #e5e7eb;
+}
+

@@ -1,0 +1,16 @@
+# Librerías (lo más pesado)
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Archivos de entorno (seguridad)
+.env
+.env.local
+
+# Carpetas de compilación
+dist/
+build/
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
