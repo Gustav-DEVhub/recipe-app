@@ -67,7 +67,7 @@ export default function Favorites() {
       <section aria-label="Favorites controls" className="rounded-xl border border-border bg-card/50 p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-col gap-1 sm:w-2/3">
-            <label htmlFor="fav-search" className="text-sm font-medium text-slate-200">
+            <label htmlFor="fav-search" className="text-main text-sm font-medium">
               Search favorites
             </label>
             <Input
@@ -80,14 +80,14 @@ export default function Favorites() {
           </div>
           <div className="flex items-center gap-3">
             <div className="flex flex-col gap-1">
-              <label htmlFor="fav-sort" className="text-sm font-medium text-slate-200">
+              <label htmlFor="fav-sort" className="text-main text-sm font-medium">
                 Sort
               </label>
               <select
                 id="fav-sort"
                 value={sortKey}
                 onChange={(e) => setSortKey(e.target.value as SortKey)}
-                className="h-10 rounded-md border border-border bg-black/20 px-3 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-400"
+                className="h-10 rounded-md border border-[color:var(--panel-border)] bg-[color:var(--surface-strong)] px-3 text-sm text-[color:var(--text-main)] focus:outline-none focus:ring-2 focus:ring-[color:var(--focus-ring)]"
                 aria-label="Sort favorites"
               >
                 <option value="title">Title</option>
@@ -121,7 +121,8 @@ export default function Favorites() {
                 title: meal.title,
                 category: meal.category,
                 area: meal.area,
-                thumbnail: meal.thumbnail
+                thumbnail: meal.thumbnail,
+                offlineThumbnail: meal.offlineThumbnail
               };
 
               return (
@@ -130,7 +131,7 @@ export default function Favorites() {
                     meal={mealCard}
                     isFavorite={true}
                     onToggleFavorite={() => removeMeal(meal)}
-                    onOpenDetails={() => navigate(`/details/${meal.id}`)}
+                    onOpenDetails={() => navigate(`/details/${meal.id}`, { state: { prefetchedMeal: meal } })}
                   />
                   <div className="mt-2 flex items-center justify-between gap-3">
                     <Button
@@ -149,12 +150,15 @@ export default function Favorites() {
           </div>
         ) : (
           <div className="rounded-xl border border-border bg-card/50 p-6 text-center">
-            <p className="text-sm font-medium text-slate-100">No favorites yet.</p>
-            <p className="mt-2 text-sm text-slate-300">Go to Home and tap the heart to save recipes.</p>
+            <p className="text-main text-sm font-medium">No favorites yet.</p>
+            <p className="text-muted mt-2 text-sm">
+              {!navigator.onLine
+                ? 'Offline and no saved data found. Connect once, then save favorites for offline usage.'
+                : 'Go to Home and tap the heart to save recipes.'}
+            </p>
           </div>
         )}
       </section>
     </div>
   );
 }
-

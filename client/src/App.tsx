@@ -18,22 +18,22 @@ function Header() {
   }, [location.pathname]);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-black/20 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b border-border bg-black/10 backdrop-blur dark:bg-black/20">
       <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3">
         <div className="flex items-center gap-2">
-          <ChefHat aria-hidden className="h-6 w-6 text-sky-400" />
-          <span className="text-sm font-semibold tracking-wide text-sky-100">{title}</span>
+          <ChefHat aria-hidden className="h-6 w-6 text-sky-500 dark:text-sky-400" />
+          <span className="text-sm font-semibold tracking-wide text-main">{title}</span>
         </div>
         <nav className="ml-auto flex items-center gap-2">
           <Link
             to="/"
-            className="rounded-md px-3 py-2 text-sm font-medium text-slate-200 hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
+            className="rounded-md px-3 py-2 text-sm font-medium text-main hover:bg-black/5 dark:hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus-ring)]"
           >
             Home
           </Link>
           <Link
             to="/favorites"
-            className="rounded-md px-3 py-2 text-sm font-medium text-slate-200 hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
+            className="rounded-md px-3 py-2 text-sm font-medium text-main hover:bg-black/5 dark:hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus-ring)]"
           >
             Favorites
           </Link>
@@ -70,4 +70,3 @@ export default function App() {
     </div>
   );
 }
-

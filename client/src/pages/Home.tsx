@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import type { Meal, MealCard } from '../lib/theMealDb';
 import { filterMealsByCategory, getCategories, searchMeals, lookupMeal } from '../lib/api';
-import { getAllFavorites, getMealDetails, removeFavorite, saveFavorite, upsertMealDetails } from '../features/favorites/db';
+import { getAllFavorites, getMealDetails, getRecentMeals, removeFavorite, saveFavorite, upsertMealDetails } from '../features/favorites/db';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -13,12 +13,17 @@ import { RecipeCard } from '../components/recipe-card';
 
 export default function Home() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [query, setQuery] = useState('');
-  const [activeQuery, setActiveQuery] = useState('');
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const initialQuery = searchParams.get('q')?.trim() ?? '';
+  const initialCategory = searchParams.get('category')?.trim() ?? '';
+  const [query, setQuery] = useState(initialQuery);
+  const [activeQuery, setActiveQuery] = useState(initialQuery);
+  const [activeCategory, setActiveCategory] = useState(initialCategory || null);
 
   const [favorites, setFavorites] = useState<Meal[]>([]);
+  const [recentMeals, setRecentMeals] = useState<Meal[]>([]);
   const favoriteIds = useMemo(() => new Set(favorites.map((f) => f.id)), [favorites]);
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
@@ -30,11 +35,25 @@ export default function Home() {
         // If IDB fails, keep UI usable.
         setFavorites([]);
       });
+
+    getRecentMeals()
+      .then((rows) => setRecentMeals(rows))
+      .catch(() => setRecentMeals([]));
   }, []);
+
+  useEffect(() => {
+    const nextQuery = searchParams.get('q')?.trim() ?? '';
+    const nextCategory = searchParams.get('category')?.trim() ?? '';
+    setQuery(nextQuery);
+    setActiveQuery(nextQuery);
+    setActiveCategory(nextCategory || null);
+  }, [searchParams]);
 
   const refreshFavorites = async () => {
     const rows = await getAllFavorites();
     setFavorites(rows);
+    const recent = await getRecentMeals();
+    setRecentMeals(recent);
   };
 
   const { data: categories, isLoading: categoriesLoading } = useQuery({
@@ -59,6 +78,7 @@ export default function Home() {
   });
 
   const mealCards: MealCard[] = activeQuery ? searchQuery.data ?? [] : filterQuery.data ?? [];
+  const safeMealCards = mealCards.filter((m) => String(m?.id ?? '').trim().length > 0);
   const mealsLoading = (activeQuery ? searchQuery.isLoading : filterQuery.isLoading) || false;
   const mealsError = (activeQuery ? searchQuery.error : filterQuery.error) as Error | null | undefined;
 
@@ -109,8 +129,7 @@ export default function Home() {
             e.preventDefault();
             const trimmed = query.trim();
             if (!trimmed) return;
-            setActiveQuery(trimmed);
-            setActiveCategory(null);
+            setSearchParams({ q: trimmed });
           }}
           className="flex flex-col gap-3 sm:flex-row sm:items-center"
         >
@@ -131,8 +150,7 @@ export default function Home() {
             type="button"
             variant="secondary"
             onClick={() => {
-              setActiveQuery('');
-              setActiveCategory(null);
+              setSearchParams({});
               setQuery('');
             }}
           >
@@ -142,7 +160,7 @@ export default function Home() {
       </section>
 
       <section aria-label="Recipe categories" className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold text-slate-100">Categories</h2>
+        <h2 className="text-sm font-semibold text-main">Categories</h2>
         <div className="flex flex-wrap gap-2" role="list">
           {categoriesLoading ? (
             Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="h-8 w-24" />)
@@ -157,8 +175,7 @@ export default function Home() {
                   className="h-8 rounded-full px-3"
                   aria-pressed={isSelected}
                   onClick={() => {
-                    setActiveCategory(cat);
-                    setActiveQuery('');
+                    setSearchParams({ category: cat });
                   }}
                 >
                   {cat}
@@ -171,16 +188,16 @@ export default function Home() {
 
       <section aria-label="Search results" className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-sm font-semibold text-slate-100">{resultsTitle}</h2>
-          {(activeQuery || activeCategory) && mealCards.length ? (
-            <Badge>{mealCards.length} recipe(s)</Badge>
+          <h2 className="text-sm font-semibold text-main">{resultsTitle}</h2>
+          {(activeQuery || activeCategory) && safeMealCards.length ? (
+            <Badge>{safeMealCards.length} recipe(s)</Badge>
           ) : null}
         </div>
 
         {mealsError ? (
           <div role="alert" className="rounded-xl border border-border bg-card/50 p-4">
             <p className="text-sm font-medium text-rose-200">Could not load results.</p>
-            <p className="mt-1 text-xs text-slate-300">{mealsError.message}</p>
+            <p className="mt-1 text-xs text-muted">{mealsError.message}</p>
           </div>
         ) : null}
 
@@ -196,26 +213,64 @@ export default function Home() {
               </div>
             ))}
           </div>
-        ) : mealCards.length ? (
+        ) : safeMealCards.length ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {mealCards.map((meal) => (
+            {safeMealCards.map((meal) => (
               <RecipeCard
                 key={meal.id}
                 meal={meal}
                 isFavorite={favoriteIds.has(meal.id)}
                 onToggleFavorite={() => toggleFavorite(meal)}
-                onOpenDetails={() => navigate(`/details/${meal.id}`)}
+                onOpenDetails={() => navigate(`/details/${meal.id}`, { state: { prefetchedMeal: meal, fromSearch: location.search } })}
               />
             ))}
           </div>
         ) : (
           <div className="rounded-xl border border-border bg-card/50 p-6 text-center">
-            <p className="text-sm font-medium text-slate-100">No results yet.</p>
-            <p className="mt-2 text-sm text-slate-300">Try a search or pick a category.</p>
+            <p className="text-sm font-medium text-main">{!navigator.onLine ? 'Offline cache is empty.' : 'No results yet.'}</p>
+            <p className="mt-2 text-sm text-muted">
+              {!navigator.onLine
+                ? 'No local data yet. Connect once to populate categories and recipe cache.'
+                : 'Try a search or pick a category.'}
+            </p>
           </div>
         )}
       </section>
+
+      {!activeQuery && !activeCategory && recentMeals.length ? (
+        <section aria-label="Recently viewed recipes" className="flex flex-col gap-4">
+          <h2 className="text-sm font-semibold text-main">Recently viewed (offline ready)</h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {recentMeals
+              .filter((meal) => String(meal?.id ?? '').trim().length > 0)
+              .map((meal) => (
+              <RecipeCard
+                key={`recent-${meal.id}`}
+                meal={{
+                  id: meal.id,
+                  title: meal.title,
+                  category: meal.category,
+                  area: meal.area,
+                  thumbnail: meal.thumbnail,
+                  offlineThumbnail: meal.offlineThumbnail
+                }}
+                isFavorite={favoriteIds.has(meal.id)}
+                onToggleFavorite={() =>
+                  toggleFavorite({
+                    id: meal.id,
+                    title: meal.title,
+                    category: meal.category,
+                    area: meal.area,
+                    thumbnail: meal.thumbnail,
+                    offlineThumbnail: meal.offlineThumbnail
+                  })
+                }
+                onOpenDetails={() => navigate(`/details/${meal.id}`, { state: { prefetchedMeal: meal, fromSearch: location.search } })}
+              />
+            ))}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }
-

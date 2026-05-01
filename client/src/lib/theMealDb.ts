@@ -9,6 +9,7 @@ export type Meal = {
   category?: string;
   area?: string;
   thumbnail?: string;
+  offlineThumbnail?: string;
   instructions?: string;
   tags?: string[];
   youtubeUrl?: string;
@@ -21,6 +22,7 @@ export type MealCard = {
   category?: string;
   area?: string;
   thumbnail?: string;
+  offlineThumbnail?: string;
 };
 
 function cleanStr(v: unknown): string | undefined {
@@ -71,4 +73,3 @@ export function normalizeMealCard(raw: any): MealCard {
     thumbnail: cleanStr(raw?.strMealThumb)
   };
 }
-

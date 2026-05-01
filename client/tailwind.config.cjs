@@ -6,17 +6,16 @@ module.exports = {
     extend: {
       colors: {
         background: {
-          DEFAULT: '#0b1220'
+          DEFAULT: 'var(--bg-app)'
         },
         card: {
-          DEFAULT: 'rgba(255,255,255,0.06)'
+          DEFAULT: 'var(--panel-bg)'
         },
         border: {
-          DEFAULT: 'rgba(255,255,255,0.12)'
+          DEFAULT: 'var(--panel-border)'
         }
       }
     }
   },
   plugins: []
 };
-

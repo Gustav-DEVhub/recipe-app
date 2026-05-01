@@ -9,15 +9,16 @@
 //   - Images (stale-while-revalidate)
 // - Offline fallback for navigation requests
 
-const CACHE_VERSION = 'recipes-pwa-cache-v1';
+const CACHE_VERSION = 'recipes-pwa-cache-v3';
 
 const PRECACHE_URLS = [
   '/',
   '/index.html',
+  '/favicon.png',
   '/offline.html',
   '/manifest.webmanifest',
-  '/icons/icon-192.svg',
-  '/icons/icon-512.svg'
+  '/icons/icon-192.png',
+  '/icons/icon-512.png'
 ];
 
 const API_CACHE = `${CACHE_VERSION}-api`;
@@ -70,7 +71,7 @@ async function staleWhileRevalidate(request, cacheName) {
   if (cached) return cached;
   const fresh = await fetchPromise;
   if (fresh) return fresh;
-  throw new Error('No cached response for resource');
+  return new Response('', { status: 503, statusText: 'Offline cache miss' });
 }
 
 async function navigationFallback(request) {
@@ -164,4 +165,3 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 });
-
