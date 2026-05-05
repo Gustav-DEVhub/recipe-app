@@ -131,6 +131,44 @@ Importante: el cliente solo consume `/api/*`; nunca llama directo a TheMealDB.
   - `cd client && npm run build`
   - Deploy sugerido: Netlify/Vercel.
 
+## Vercel (Monorepo Unico)
+
+Este repo soporta deploy en un solo proyecto de Vercel:
+- Frontend estatico desde `client/dist`
+- API Express en `/api/*` via funcion serverless (`api/index.ts`)
+
+Archivos clave:
+- `vercel.json`
+- `api/[...all].ts`
+- `server/src/app.ts`
+
+### Variables de entorno en Vercel
+
+Configura en Project Settings -> Environment Variables:
+
+```env
+MEALDB_API_BASE=https://www.themealdb.com/api/json/v1
+MEALDB_API_KEY=1
+# Optional:
+# CORS_ORIGIN=https://tu-dominio.vercel.app
+```
+
+### Flujo de deploy recomendado
+
+1. Push a GitHub.
+2. Importa el repo en Vercel.
+3. Vercel detectara `vercel.json` y usara:
+   - Build command: `npm --prefix client run build`
+   - Output directory: `client/dist`
+4. Configura las variables de entorno arriba.
+5. Deploy.
+
+### Verificacion post-deploy
+
+- `https://tu-dominio.vercel.app/` carga la app.
+- `https://tu-dominio.vercel.app/api/categories` responde JSON.
+- Busqueda, categorias, detalles y favoritos funcionan sin exponer API key.
+
 ## Post-Generation Checklist
 
 - Reemplazar iconos placeholder en `client/public/icons`.
