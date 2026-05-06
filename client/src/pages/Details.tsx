@@ -11,6 +11,9 @@ import { getFavorite, getMealDetails, removeFavorite, saveFavorite, upsertMealDe
 import { lookupMeal } from '../lib/api';
 import type { Meal } from '../lib/theMealDb';
 
+const IMAGE_FALLBACK =
+  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800"><rect width="100%" height="100%" fill="%230b1220"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23cbd5e1" font-family="sans-serif" font-size="34">Image unavailable offline</text></svg>';
+
 function isFullMeal(value: unknown): value is Meal {
   const meal = value as Meal | null;
   return Boolean(meal && typeof meal.id === 'string' && Array.isArray(meal.ingredients));
@@ -164,6 +167,9 @@ export default function Details() {
                     alt={`Image of ${meal.title}`}
                     className="h-auto w-full max-h-[320px] object-cover"
                     loading="lazy"
+                    onError={(event) => {
+                      event.currentTarget.src = IMAGE_FALLBACK;
+                    }}
                   />
                 ) : (
                   <div className="aspect-[16/10] bg-white/5" />

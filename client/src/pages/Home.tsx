@@ -123,6 +123,12 @@ export default function Home() {
 
   return (
     <div className="flex flex-col gap-6">
+      {!navigator.onLine ? (
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          Showing offline-ready data when available. Connect once to refresh categories, searches, and images.
+        </div>
+      ) : null}
+
       <section aria-label="Search recipes" className="rounded-xl border border-border bg-card/50 p-4">
         <form
           onSubmit={(e) => {
@@ -183,6 +189,9 @@ export default function Home() {
               );
             })
           )}
+          {!categoriesLoading && !(categories ?? []).length ? (
+            <p className="text-muted text-sm">No categories cached yet. Connect online once to load them.</p>
+          ) : null}
         </div>
       </section>
 

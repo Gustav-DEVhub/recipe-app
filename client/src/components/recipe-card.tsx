@@ -4,6 +4,9 @@ import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Heart } from 'lucide-react';
 
+const IMAGE_FALLBACK =
+  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><rect width="100%" height="100%" fill="%230b1220"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23cbd5e1" font-family="sans-serif" font-size="28">Image unavailable offline</text></svg>';
+
 export function RecipeCard({
   meal,
   isFavorite,
@@ -22,6 +25,9 @@ export function RecipeCard({
           src={meal.offlineThumbnail ?? meal.thumbnail}
           alt={`Thumbnail for ${meal.title}`}
           loading="lazy"
+          onError={(event) => {
+            event.currentTarget.src = IMAGE_FALLBACK;
+          }}
           className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
         />
         <div className="absolute left-2 top-2 flex gap-2">

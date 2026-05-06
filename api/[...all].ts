@@ -35,7 +35,12 @@ async function fetchMealDb(url: string): Promise<AnyObject> {
 function parsePathAndQuery(req: any): { path: string; query: URLSearchParams } {
   const host = req.headers?.host ?? 'localhost';
   const url = new URL(req.url ?? '/', `https://${host}`);
-  const path = String(url.searchParams.get('path') ?? '').replace(/^\/+|\/+$/g, '');
+  const fromQuery = String(url.searchParams.get('path') ?? '').replace(/^\/+|\/+$/g, '');
+  const fromPathname = String(url.pathname ?? '')
+    .replace(/^\/+/, '')
+    .replace(/^api\/(?:\[\.\.\.all\]\/?)?/, '')
+    .replace(/^\/+|\/+$/g, '');
+  const path = fromQuery || fromPathname;
   return { path, query: url.searchParams };
 }
 

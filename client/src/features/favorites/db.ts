@@ -1,12 +1,19 @@
 import { openDB, type IDBPDatabase } from 'idb';
-import type { Meal } from '../../lib/theMealDb';
+import type { Meal, MealCard } from '../../lib/theMealDb';
 
 const DB_NAME = 'recipes-pwa-db';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 const FAVORITES_STORE = 'favorites';
 const MEAL_DETAILS_STORE = 'meal_details';
 const RECENTS_STORE = 'recent_meals';
+const QUERY_CACHE_STORE = 'query_cache';
+
+type QueryCacheRecord = {
+  id: string;
+  value: unknown;
+  updatedAt: number;
+};
 
 let dbPromise: Promise<IDBPDatabase> | null = null;
 
@@ -25,6 +32,9 @@ async function getDb(): Promise<IDBPDatabase> {
         }
         if (!db.objectStoreNames.contains(RECENTS_STORE)) {
           db.createObjectStore(RECENTS_STORE, { keyPath: 'id' });
+        }
+        if (!db.objectStoreNames.contains(QUERY_CACHE_STORE)) {
+          db.createObjectStore(QUERY_CACHE_STORE, { keyPath: 'id' });
         }
       }
     });
@@ -96,6 +106,35 @@ async function getByIdFlexible(store: string, id: string): Promise<Meal | null> 
   return found ?? null;
 }
 
+function normalizeQueryPart(value: string): string {
+  return String(value ?? '').trim().toLowerCase();
+}
+
+function makeQueryCacheId(kind: 'search' | 'filter' | 'categories', key = ''): string {
+  const normalized = normalizeQueryPart(key);
+  return normalized ? `${kind}:${normalized}` : kind;
+}
+
+async function getOfflineThumbnailForMeal(id: string): Promise<string | undefined> {
+  const [details, favorite, recent] = await Promise.all([
+    getByIdFlexible(MEAL_DETAILS_STORE, id),
+    getByIdFlexible(FAVORITES_STORE, id),
+    getByIdFlexible(RECENTS_STORE, id)
+  ]);
+
+  return details?.offlineThumbnail ?? favorite?.offlineThumbnail ?? recent?.offlineThumbnail;
+}
+
+async function enrichMealCardsWithOfflineThumb(cards: MealCard[]): Promise<MealCard[]> {
+  return Promise.all(
+    cards.map(async (card) => {
+      if (card.offlineThumbnail) return card;
+      const offlineThumbnail = await getOfflineThumbnailForMeal(card.id);
+      return offlineThumbnail ? { ...card, offlineThumbnail } : card;
+    })
+  );
+}
+
 export async function addRecentMeal(meal: Meal) {
   const id = String(meal.id ?? '').trim();
   if (!id) return;
@@ -153,4 +192,51 @@ export async function getAllFavorites(): Promise<Meal[]> {
   return all
     .filter((m) => String(m?.id ?? '').trim().length > 0)
     .sort((a, b) => a.title.localeCompare(b.title));
+}
+
+export async function cacheCategoriesList(categories: string[]): Promise<void> {
+  const clean = categories.map((c) => String(c ?? '').trim()).filter(Boolean);
+  const record: QueryCacheRecord = {
+    id: makeQueryCacheId('categories'),
+    value: clean,
+    updatedAt: Date.now()
+  };
+  await withDbRetry(async (db) => db.put(QUERY_CACHE_STORE, record));
+}
+
+export async function getCachedCategoriesList(): Promise<string[]> {
+  const record = (await withDbRetry(async (db) =>
+    db.get(QUERY_CACHE_STORE, makeQueryCacheId('categories'))
+  )) as QueryCacheRecord | undefined;
+
+  if (!record) return [];
+  const value = Array.isArray(record.value) ? record.value : [];
+  return value.map((item) => String(item ?? '').trim()).filter(Boolean);
+}
+
+export async function cacheMealCards(kind: 'search' | 'filter', key: string, meals: MealCard[]): Promise<void> {
+  const queryKey = normalizeQueryPart(key);
+  if (!queryKey) return;
+  const cleanMeals = meals.filter((m) => String(m?.id ?? '').trim().length > 0);
+  const enriched = await enrichMealCardsWithOfflineThumb(cleanMeals);
+  const record: QueryCacheRecord = {
+    id: makeQueryCacheId(kind, queryKey),
+    value: enriched,
+    updatedAt: Date.now()
+  };
+  await withDbRetry(async (db) => db.put(QUERY_CACHE_STORE, record));
+}
+
+export async function getCachedMealCards(kind: 'search' | 'filter', key: string): Promise<MealCard[]> {
+  const queryKey = normalizeQueryPart(key);
+  if (!queryKey) return [];
+  const record = (await withDbRetry(async (db) =>
+    db.get(QUERY_CACHE_STORE, makeQueryCacheId(kind, queryKey))
+  )) as QueryCacheRecord | undefined;
+
+  if (!record) return [];
+  const value = Array.isArray(record.value) ? record.value : [];
+  const meals = value as MealCard[];
+  const clean = meals.filter((m) => String(m?.id ?? '').trim().length > 0);
+  return enrichMealCardsWithOfflineThumb(clean);
 }
