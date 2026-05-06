@@ -10,6 +10,7 @@
     "install:all": "npm --prefix server install && npm --prefix client install"
   },
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "concurrently": "^9.2.1",
+    "typescript": "^6.0.2"
   }
 }

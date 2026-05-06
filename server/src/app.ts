@@ -3,7 +3,7 @@ import compression from 'compression';
 import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
-import mealdbRouter from './routes/mealdb';
+import mealdbRouter from './routes/mealdb.js';
 
 const app = express();
 
