@@ -9,7 +9,7 @@
 //   - Images (stale-while-revalidate)
 // - Offline fallback for navigation requests
 
-const CACHE_VERSION = 'recipes-pwa-cache-v3';
+const CACHE_VERSION = 'recipes-pwa-cache-v4';
 
 const PRECACHE_URLS = [
   '/',
@@ -71,7 +71,7 @@ async function staleWhileRevalidate(request, cacheName) {
   if (cached) return cached;
   const fresh = await fetchPromise;
   if (fresh) return fresh;
-  return new Response('', { status: 503, statusText: 'Offline cache miss' });
+  return null;
 }
 
 async function navigationFallback(request) {
@@ -156,7 +156,15 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (request.destination === 'image') {
-    event.respondWith(staleWhileRevalidate(request, IMAGES_CACHE));
+    event.respondWith(
+      (async () => {
+        const result = await staleWhileRevalidate(request, IMAGES_CACHE);
+        if (result) return result;
+        // Avoid hard 503 spam in offline mode when an image was never cached.
+        // UI-level fallback image handlers will render a placeholder.
+        return new Response('', { status: 204, statusText: 'No cached image' });
+      })()
+    );
     return;
   }
 
