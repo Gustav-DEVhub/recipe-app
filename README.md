@@ -12,6 +12,7 @@ A Progressive Web App (PWA) for recipes powered by TheMealDB, with a React + Vit
 - Bulk recipe import/export (Markdown, JSON, basic Paprika JSON).
 - Installable PWA with manifest + manual service worker.
 - Offline navigation fallback and runtime cache for `/api/*`.
+- Progressive offline support for visited recipes, saved favorites, cached categories, and local shopping/import-export data.
 - Responsive UI with skeleton loaders, empty states, and error handling.
 
 ## Tech Stack
@@ -126,6 +127,15 @@ Important: the client only consumes `/api/*`; it never calls TheMealDB directly.
 4. Reload the app.
 5. Verify favorites and offline fallback behavior.
 
+### Offline Scope
+
+Offline support in this version is progressive, not full-catalog preloading.
+
+- Recipes usually become available offline after the user opens their detail view or saves them to favorites.
+- Cached categories, searches, and details can be reused offline when they were previously visited online.
+- Shopping list and import/export data are fully local-first because they are stored in IndexedDB.
+- If browser storage is cleared, offline data is expected to be lost until the app is warmed again online.
+
 ## Build and Deploy Notes
 
 - Server:
@@ -139,7 +149,7 @@ Important: the client only consumes `/api/*`; it never calls TheMealDB directly.
 
 This repository supports deploying frontend + API in one Vercel project:
 - Static frontend from `client/dist`
-- Express API under `/api/*` through serverless handler (`api/index.ts`)
+- Express-compatible API under `/api/*` through the serverless catch-all handler (`api/[...all].ts`)
 
 Key files:
 - `vercel.json`
@@ -183,6 +193,7 @@ MEALDB_API_KEY=1
 
 ## Roadmap V2 (Planned, not active in v1)
 
+- No authentication, Supabase, OAuth, or cloud sync is active in the current v1 build.
 - Supabase integration for authentication + multi-device sync.
 - Share recipes/lists with signed links.
 - OAuth (Google) as optional social login.
