@@ -7,7 +7,7 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { Skeleton } from '../components/ui/skeleton';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
-import { getFavorite, getMealDetails, removeFavorite, saveFavorite, upsertMealDetails } from '../features/favorites/db';
+import { addMealIngredientsToShoppingList, getFavorite, getMealDetails, removeFavorite, saveFavorite, upsertMealDetails } from '../features/favorites/db';
 import { lookupMeal } from '../lib/api';
 import type { Meal } from '../lib/theMealDb';
 
@@ -107,13 +107,23 @@ export default function Details() {
     }
   }
 
+  async function addToShoppingList() {
+    if (!meal) return;
+    try {
+      const summary = await addMealIngredientsToShoppingList(meal);
+      toast.success(`Added ${summary.added} item(s)${summary.merged ? `, merged ${summary.merged}` : ''}.`);
+    } catch {
+      toast.error('Could not add ingredients to shopping list.');
+    }
+  }
+
   const tags = meal?.tags ?? [];
   const canGoBack = window.history.length > 1;
   const querySuffix = navState?.fromSearch ?? '';
 
   return (
-    <div className="flex flex-col gap-6">
-      <section aria-label="Back navigation">
+    <div className="app-page-shell flex flex-col gap-6">
+      <section aria-label="Back navigation" className="motion-fade-up">
         <Button
           type="button"
           variant="secondary"
@@ -130,7 +140,7 @@ export default function Details() {
         </Button>
       </section>
 
-      <section aria-label="Recipe details">
+      <section aria-label="Recipe details" className="motion-fade-up">
         {isLoading ? (
           <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
             <Skeleton className="aspect-[16/10] w-full rounded-xl" />
@@ -160,6 +170,12 @@ export default function Details() {
         ) : (
           <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
             <div className="flex flex-col gap-4">
+              <Card className="premium-panel">
+                <CardContent className="p-5">
+                  <h1 className="text-main text-xl font-semibold">{meal.title}</h1>
+                </CardContent>
+              </Card>
+
               <div className="overflow-hidden rounded-xl border border-border bg-card/50">
                 {meal.thumbnail ? (
                   <img
@@ -188,19 +204,8 @@ export default function Details() {
 
               <Card className="premium-panel">
                 <CardContent className="p-5">
-                  <h1 className="text-main text-xl font-semibold">{meal.title}</h1>
-                  <p className="text-muted mt-3 whitespace-pre-wrap text-sm leading-relaxed">
-                    {meal.instructions ?? 'No instructions available.'}
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-
-            <aside className="flex flex-col gap-4">
-              <Card className="premium-panel">
-                <CardContent className="p-5">
                   <div className="flex items-center justify-between gap-3">
-                    <h2 className="text-sm font-semibold">Ingredients</h2>
+                    <h2 className="text-main text-sm font-semibold">Ingredients</h2>
                     <Dialog>
                       <DialogTrigger asChild>
                         <Button type="button" className="premium-btn-ghost h-9 border border-slate-500/40">
@@ -243,6 +248,17 @@ export default function Details() {
 
               <Card className="premium-panel">
                 <CardContent className="p-5">
+                  <h2 className="text-main text-sm font-semibold">Instructions</h2>
+                  <p className="text-muted mt-3 whitespace-pre-wrap text-sm leading-relaxed">
+                    {meal.instructions ?? 'No instructions available.'}
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            <aside className="flex flex-col gap-4">
+              <Card className="premium-panel">
+                <CardContent className="p-5">
                   <h2 className="text-sm font-semibold">YouTube</h2>
                   {meal.youtubeUrl ? (
                     <Button asChild className="premium-btn-ghost mt-3 w-full justify-start border border-slate-500/40" size="default">
@@ -260,6 +276,9 @@ export default function Details() {
                     disabled={favoriteLoading}
                   >
                     {isFavorite ? 'Unfavorite' : 'Favorite'}
+                  </Button>
+                  <Button type="button" variant="secondary" className="mt-3 w-full" onClick={addToShoppingList}>
+                    Add to shopping list
                   </Button>
                 </CardContent>
               </Card>

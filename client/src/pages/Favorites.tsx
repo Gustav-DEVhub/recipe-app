@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import type { Meal } from '../lib/theMealDb';
-import { getAllFavorites, removeFavorite } from '../features/favorites/db';
+import { addMealIngredientsToShoppingList, getAllFavorites, removeFavorite } from '../features/favorites/db';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -62,9 +62,18 @@ export default function Favorites() {
     }
   }
 
+  async function addToShoppingList(meal: Meal) {
+    try {
+      const summary = await addMealIngredientsToShoppingList(meal);
+      toast.success(`Added ${summary.added} item(s)${summary.merged ? `, merged ${summary.merged}` : ''}.`);
+    } catch {
+      toast.error('Could not add ingredients to shopping list.');
+    }
+  }
+
   return (
-    <div className="flex flex-col gap-6">
-      <section aria-label="Favorites controls" className="rounded-xl border border-border bg-card/50 p-4">
+    <div className="app-page-shell flex flex-col gap-6">
+      <section aria-label="Favorites controls" className="motion-fade-up mx-auto w-full max-w-4xl rounded-xl border border-border bg-card/50 p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-col gap-1 sm:w-2/3">
             <label htmlFor="fav-search" className="text-main text-sm font-medium">
@@ -102,7 +111,7 @@ export default function Favorites() {
 
       <section aria-label="Saved recipes">
         {loading ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="motion-stagger mx-auto grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 9 }).map((_, i) => (
               <div key={i} className="overflow-hidden rounded-xl border border-border bg-card/50">
                 <Skeleton className="aspect-[4/3] w-full" />
@@ -114,7 +123,7 @@ export default function Favorites() {
             ))}
           </div>
         ) : filtered.length ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="motion-stagger mx-auto grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map((meal) => {
               const mealCard = {
                 id: meal.id,
@@ -132,6 +141,7 @@ export default function Favorites() {
                     isFavorite={true}
                     onToggleFavorite={() => removeMeal(meal)}
                     onOpenDetails={() => navigate(`/details/${meal.id}`, { state: { prefetchedMeal: meal } })}
+                    onAddToShoppingList={() => addToShoppingList(meal)}
                   />
                   <div className="mt-2 flex items-center justify-between gap-3">
                     <Button

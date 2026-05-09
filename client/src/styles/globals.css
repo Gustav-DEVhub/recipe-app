@@ -43,6 +43,9 @@ html.dark {
 body {
   background: var(--bg-app);
   color: var(--text-main);
+  transition:
+    background 220ms ease,
+    color 220ms ease;
 }
 
 *:focus-visible {
@@ -90,10 +93,104 @@ body {
   background: var(--surface-hover);
 }
 
+.route-shell {
+  animation: route-enter 240ms ease-out;
+}
+
+.app-page-shell {
+  animation: page-enter 260ms ease-out;
+}
+
+.motion-fade-up {
+  animation: fade-up 240ms ease-out;
+}
+
+.motion-stagger > * {
+  animation: fade-up 280ms ease-out both;
+}
+
+.motion-card {
+  transition:
+    transform 220ms ease,
+    box-shadow 220ms ease,
+    border-color 220ms ease,
+    background 220ms ease;
+}
+
+.motion-card:hover {
+  transform: translateY(-2px);
+}
+
+.motion-stagger > *:nth-child(1) { animation-delay: 0ms; }
+.motion-stagger > *:nth-child(2) { animation-delay: 30ms; }
+.motion-stagger > *:nth-child(3) { animation-delay: 60ms; }
+.motion-stagger > *:nth-child(4) { animation-delay: 90ms; }
+.motion-stagger > *:nth-child(5) { animation-delay: 120ms; }
+.motion-stagger > *:nth-child(6) { animation-delay: 150ms; }
+.motion-stagger > *:nth-child(7) { animation-delay: 180ms; }
+.motion-stagger > *:nth-child(8) { animation-delay: 210ms; }
+.motion-stagger > *:nth-child(9) { animation-delay: 240ms; }
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes route-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .a11y-disabled,
 button:disabled {
   background: var(--disabled-bg);
   color: var(--disabled-text);
   opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body,
+  .motion-card,
+  .premium-btn-main,
+  .premium-btn-ghost {
+    transition: none;
+  }
+
+  .route-shell,
+  .app-page-shell,
+  .motion-fade-up,
+  .motion-stagger > * {
+    animation: none;
+  }
+
+  .motion-card:hover {
+    transform: none;
+  }
 }
 

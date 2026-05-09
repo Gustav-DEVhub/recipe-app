@@ -4,7 +4,15 @@ import { toast } from 'sonner';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import type { Meal, MealCard } from '../lib/theMealDb';
 import { filterMealsByCategory, getCategories, searchMeals, lookupMeal } from '../lib/api';
-import { getAllFavorites, getMealDetails, getRecentMeals, removeFavorite, saveFavorite, upsertMealDetails } from '../features/favorites/db';
+import {
+  addMealIngredientsToShoppingList,
+  getAllFavorites,
+  getMealDetails,
+  getRecentMeals,
+  removeFavorite,
+  saveFavorite,
+  upsertMealDetails
+} from '../features/favorites/db';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -115,6 +123,27 @@ export default function Home() {
     }
   }
 
+  async function addToShoppingList(meal: MealCard | Meal) {
+    try {
+      const fullMeal = await getMealDetails(meal.id);
+      if (fullMeal) {
+        const summary = await addMealIngredientsToShoppingList(fullMeal);
+        toast.success(`Added ${summary.added} item(s)${summary.merged ? `, merged ${summary.merged}` : ''}.`);
+        return;
+      }
+      if (!navigator.onLine) {
+        toast.error('Open recipe details online once, then add to list offline.');
+        return;
+      }
+      const fromApi = await lookupMeal(meal.id);
+      await upsertMealDetails(fromApi);
+      const summary = await addMealIngredientsToShoppingList(fromApi);
+      toast.success(`Added ${summary.added} item(s)${summary.merged ? `, merged ${summary.merged}` : ''}.`);
+    } catch {
+      toast.error('Could not add ingredients to shopping list.');
+    }
+  }
+
   const resultsTitle = activeCategory
     ? `Category: ${activeCategory}`
     : activeQuery
@@ -122,14 +151,14 @@ export default function Home() {
       : 'Browse recipes';
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="app-page-shell flex flex-col gap-6">
       {!navigator.onLine ? (
         <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
           Showing offline-ready data when available. Connect once to refresh categories, searches, and images.
         </div>
       ) : null}
 
-      <section aria-label="Search recipes" className="rounded-xl border border-border bg-card/50 p-4">
+      <section aria-label="Search recipes" className="motion-fade-up mx-auto w-full max-w-4xl rounded-xl border border-border bg-card/50 p-4">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -165,7 +194,7 @@ export default function Home() {
         </form>
       </section>
 
-      <section aria-label="Recipe categories" className="flex flex-col gap-3">
+      <section aria-label="Recipe categories" className="motion-fade-up flex flex-col gap-3">
         <h2 className="text-sm font-semibold text-main">Categories</h2>
         <div className="flex flex-wrap gap-2" role="list">
           {categoriesLoading ? (
@@ -195,7 +224,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section aria-label="Search results" className="flex flex-col gap-4">
+      <section aria-label="Search results" className="motion-fade-up flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-sm font-semibold text-main">{resultsTitle}</h2>
           {(activeQuery || activeCategory) && safeMealCards.length ? (
@@ -211,7 +240,7 @@ export default function Home() {
         ) : null}
 
         {mealsLoading ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="motion-stagger mx-auto grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 9 }).map((_, i) => (
               <div key={i} className="overflow-hidden rounded-xl border border-border bg-card/50">
                 <Skeleton className="aspect-[4/3] w-full" />
@@ -223,7 +252,7 @@ export default function Home() {
             ))}
           </div>
         ) : safeMealCards.length ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="motion-stagger mx-auto grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {safeMealCards.map((meal) => (
               <RecipeCard
                 key={meal.id}
@@ -231,6 +260,7 @@ export default function Home() {
                 isFavorite={favoriteIds.has(meal.id)}
                 onToggleFavorite={() => toggleFavorite(meal)}
                 onOpenDetails={() => navigate(`/details/${meal.id}`, { state: { prefetchedMeal: meal, fromSearch: location.search } })}
+                onAddToShoppingList={() => addToShoppingList(meal)}
               />
             ))}
           </div>
@@ -247,9 +277,9 @@ export default function Home() {
       </section>
 
       {!activeQuery && !activeCategory && recentMeals.length ? (
-        <section aria-label="Recently viewed recipes" className="flex flex-col gap-4">
+        <section aria-label="Recently viewed recipes" className="motion-fade-up flex flex-col gap-4">
           <h2 className="text-sm font-semibold text-main">Recently viewed (offline ready)</h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="motion-stagger mx-auto grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {recentMeals
               .filter((meal) => String(meal?.id ?? '').trim().length > 0)
               .map((meal) => (
@@ -275,6 +305,7 @@ export default function Home() {
                   })
                 }
                 onOpenDetails={() => navigate(`/details/${meal.id}`, { state: { prefetchedMeal: meal, fromSearch: location.search } })}
+                onAddToShoppingList={() => addToShoppingList(meal)}
               />
             ))}
           </div>

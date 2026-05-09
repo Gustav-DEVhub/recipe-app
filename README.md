@@ -1,23 +1,25 @@
 # Recipes PWA
 
-Progressive Web App (PWA) de recetas usando TheMealDB, con cliente React + Vite + Tailwind + shadcn/ui y backend proxy en Node.js/Express.
+A Progressive Web App (PWA) for recipes powered by TheMealDB, with a React + Vite + Tailwind + shadcn/ui client and a Node.js/Express proxy backend.
 
 ## Features
 
-- Busqueda de recetas por nombre.
-- Exploracion por categorias.
-- Vista de detalle con ingredientes, instrucciones, tags y enlace de YouTube.
-- Favoritos offline con IndexedDB (add/view/delete).
-- PWA instalable con manifest + service worker manual.
-- Fallback offline para navegacion y cache runtime para `/api/*`.
-- UI responsive con skeletons, estados vacios y manejo de errores.
+- Search recipes by name.
+- Browse recipes by category.
+- Recipe detail view with ingredients, instructions, tags, and YouTube link.
+- Offline favorites with IndexedDB (add/view/delete).
+- Offline shopping list (checklist, clear completed, export CSV/JSON, print).
+- Bulk recipe import/export (Markdown, JSON, basic Paprika JSON).
+- Installable PWA with manifest + manual service worker.
+- Offline navigation fallback and runtime cache for `/api/*`.
+- Responsive UI with skeleton loaders, empty states, and error handling.
 
 ## Tech Stack
 
 - Frontend: React, Vite, TypeScript, Tailwind CSS v3, shadcn/ui, TanStack Query, sonner.
 - Backend: Node.js, Express, TypeScript, helmet, cors, compression.
 - Offline storage: IndexedDB (`idb`).
-- Data source: TheMealDB v1 (a traves de proxy backend).
+- Data source: TheMealDB v1 (through backend proxy).
 
 ## Project Structure
 
@@ -38,7 +40,9 @@ Progressive Web App (PWA) de recetas usando TheMealDB, con cliente React + Vite 
   src/App.tsx
   src/components/*
   src/pages/{Home,Details,Favorites}.tsx
+  src/pages/{ShoppingList,ImportExport}.tsx
   src/features/favorites/db.ts
+  src/features/import-export/service.ts
   src/lib/api.ts
   src/lib/queryClient.ts
   src/styles/globals.css
@@ -50,14 +54,14 @@ Progressive Web App (PWA) de recetas usando TheMealDB, con cliente React + Vite 
 
 ## Setup (Unified)
 
-1. Crear variables del server:
+1. Create server environment variables:
 
 ```bash
 cd server
 cp .env.example .env
 ```
 
-2. Volver a la raiz y levantar todo:
+2. Go back to repo root and start everything:
 
 ```bash
 cd ..
@@ -66,7 +70,7 @@ npm run install:all
 npm run dev
 ```
 
-Con esto se levantan server y client en paralelo desde la raiz del repo.
+This starts server and client in parallel from the repository root.
 
 ## Debug Scripts
 
@@ -77,11 +81,11 @@ npm run dev:client
 
 - Server default: `http://localhost:3001`
 - Client default: `http://localhost:5174`
-- Vite proxy reenvia `/api/*` a `http://localhost:3001`
+- Vite proxy forwards `/api/*` to `http://localhost:3001`
 
 ## Environment Variables (Server)
 
-Archivo: `server/.env`
+File: `server/.env`
 
 ```env
 MEALDB_API_BASE=https://www.themealdb.com/api/json/v1
@@ -98,81 +102,87 @@ PORT=3001
 - `GET /api/filter?c={category}` -> `filter.php?c=...`
 - `GET /api/random` -> `random.php`
 
-Importante: el cliente solo consume `/api/*`; nunca llama directo a TheMealDB.
+Important: the client only consumes `/api/*`; it never calls TheMealDB directly.
 
 ## PWA Details
 
 - Manifest: `client/public/manifest.webmanifest`
-- Service Worker: `client/public/sw.js` (manual, sin Workbox)
+- Service Worker: `client/public/sw.js` (manual, no Workbox)
 - Offline fallback page: `client/public/offline.html`
 
 ### Cache Strategy
 
-- Precache: shell de app + assets estaticos esenciales.
+- Precache: app shell + essential static assets.
 - Runtime `/api/categories`: stale-while-revalidate.
-- Runtime `/api/search`, `/api/meal/:id`, `/api/filter`: network-first con fallback a cache.
+- Runtime `/api/search`, `/api/meal/:id`, `/api/filter`: network-first with cache fallback.
 - Images: stale-while-revalidate.
-- Navigation offline: intenta `index.html`, luego `offline.html`.
+- Offline navigation: try `index.html`, then `offline.html`.
 
 ### How to Test Offline
 
-1. Levanta toda la app con `npm run dev` desde la raiz.
-2. Navega por Home/Details y guarda recetas en favoritos.
-3. Abre DevTools y simula modo offline.
-4. Recarga la app.
-5. Verifica favoritos y fallback offline.
+1. Start the app with `npm run dev` from repo root.
+2. Navigate through Home/Details and save some favorites.
+3. Open DevTools and simulate offline mode.
+4. Reload the app.
+5. Verify favorites and offline fallback behavior.
 
 ## Build and Deploy Notes
 
 - Server:
   - `cd server && npm run start`
-  - Deploy sugerido: Render/Railway/Fly.
+  - Suggested deploy: Render/Railway/Fly.
 - Client:
   - `cd client && npm run build`
-  - Deploy sugerido: Netlify/Vercel.
+  - Suggested deploy: Netlify/Vercel.
 
-## Vercel (Monorepo Unico)
+## Vercel (Single Monorepo Project)
 
-Este repo soporta deploy en un solo proyecto de Vercel:
-- Frontend estatico desde `client/dist`
-- API Express en `/api/*` via funcion serverless (`api/index.ts`)
+This repository supports deploying frontend + API in one Vercel project:
+- Static frontend from `client/dist`
+- Express API under `/api/*` through serverless handler (`api/index.ts`)
 
-Archivos clave:
+Key files:
 - `vercel.json`
 - `api/[...all].ts`
 - `server/src/app.ts`
 
-### Variables de entorno en Vercel
+### Environment Variables on Vercel
 
-Configura en Project Settings -> Environment Variables:
+Set in Project Settings -> Environment Variables:
 
 ```env
 MEALDB_API_BASE=https://www.themealdb.com/api/json/v1
 MEALDB_API_KEY=1
 # Optional:
-# CORS_ORIGIN=https://tu-dominio.vercel.app
+# CORS_ORIGIN=https://your-domain.vercel.app
 ```
 
-### Flujo de deploy recomendado
+### Recommended Deploy Flow
 
-1. Push a GitHub.
-2. Importa el repo en Vercel.
-3. Vercel detectara `vercel.json` y usara:
+1. Push to GitHub.
+2. Import the repository in Vercel.
+3. Vercel reads `vercel.json` and uses:
    - Build command: `npm --prefix client run build`
    - Output directory: `client/dist`
-4. Configura las variables de entorno arriba.
+4. Add the environment variables above.
 5. Deploy.
 
-### Verificacion post-deploy
+### Post-deploy Verification
 
-- `https://tu-dominio.vercel.app/` carga la app.
-- `https://tu-dominio.vercel.app/api/categories` responde JSON.
-- Busqueda, categorias, detalles y favoritos funcionan sin exponer API key.
+- `https://your-domain.vercel.app/` loads the app.
+- `https://your-domain.vercel.app/api/categories` returns JSON.
+- Search, categories, details, and favorites work without exposing API keys.
 
-## Post-Generation Checklist
+## Post-generation Checklist
 
-- Reemplazar iconos placeholder en `client/public/icons`.
-- Revisar colores/branding final.
-- Validar instalacion PWA en Android/Desktop.
-- Confirmar politica de cache segun trafico esperado.
-- Ejecutar smoke tests de offline favorites.
+- Replace placeholder icons in `client/public/icons`.
+- Finalize brand colors and visual style.
+- Validate PWA install on Android/Desktop.
+- Confirm cache strategy for expected traffic.
+- Run offline favorites smoke tests.
+
+## Roadmap V2 (Planned, not active in v1)
+
+- Supabase integration for authentication + multi-device sync.
+- Share recipes/lists with signed links.
+- OAuth (Google) as optional social login.

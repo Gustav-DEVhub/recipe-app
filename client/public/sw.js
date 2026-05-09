@@ -9,7 +9,7 @@
 //   - Images (stale-while-revalidate)
 // - Offline fallback for navigation requests
 
-const CACHE_VERSION = 'recipes-pwa-cache-v4';
+const CACHE_VERSION = 'recipes-pwa-cache-v5';
 
 const PRECACHE_URLS = [
   '/',
@@ -42,6 +42,27 @@ async function cachePut(cacheName, request, response) {
   }
 }
 
+function emptyResponse(status = 204, statusText = 'No Content') {
+  return new Response('', {
+    status,
+    statusText,
+    headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Cache-Control': 'no-store'
+    }
+  });
+}
+
+async function matchFromCaches(request, fallbackUrl) {
+  const direct = await caches.match(request);
+  if (direct) return direct;
+  if (fallbackUrl) {
+    const fallback = await caches.match(fallbackUrl);
+    if (fallback) return fallback;
+  }
+  return null;
+}
+
 async function networkFirst(request, cacheName) {
   const cache = await caches.open(cacheName);
   try {
@@ -53,7 +74,9 @@ async function networkFirst(request, cacheName) {
   } catch {
     const cached = await cache.match(request);
     if (cached) return cached;
-    throw new Error('Network and cache both failed');
+    const globalCached = await caches.match(request);
+    if (globalCached) return globalCached;
+    return emptyResponse(503, 'Offline cache miss');
   }
 }
 
@@ -71,7 +94,9 @@ async function staleWhileRevalidate(request, cacheName) {
   if (cached) return cached;
   const fresh = await fetchPromise;
   if (fresh) return fresh;
-  return null;
+  const globalCached = await caches.match(request);
+  if (globalCached) return globalCached;
+  return emptyResponse(503, 'Offline cache miss');
 }
 
 async function navigationFallback(request) {
@@ -83,11 +108,12 @@ async function navigationFallback(request) {
     }
     return fresh;
   } catch {
-    const cachedIndex = await caches.match('/index.html');
+    const cachedIndex = await matchFromCaches('/index.html', '/offline.html');
     if (cachedIndex) return cachedIndex;
-    const offline = await caches.match('/offline.html');
-    if (offline) return offline;
-    throw new Error('Offline navigation failed');
+    return new Response('<h1>Offline</h1><p>App shell unavailable.</p>', {
+      status: 503,
+      headers: { 'Content-Type': 'text/html; charset=utf-8' }
+    });
   }
 }
 
@@ -132,13 +158,15 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
 
   if (request.mode === 'navigate') {
-    event.respondWith(navigationFallback(request));
+    event.respondWith(
+      navigationFallback(request).catch(() => emptyResponse(503, 'Offline navigation failed'))
+    );
     return;
   }
 
   if (url.pathname.startsWith('/api/')) {
     if (url.pathname === '/api/categories') {
-      event.respondWith(staleWhileRevalidate(request, API_CACHE));
+      event.respondWith(staleWhileRevalidate(request, API_CACHE).catch(() => emptyResponse(503, 'Offline cache miss')));
       return;
     }
 
@@ -147,11 +175,11 @@ self.addEventListener('fetch', (event) => {
       url.pathname.startsWith('/api/meal/') ||
       url.pathname.startsWith('/api/filter')
     ) {
-      event.respondWith(networkFirst(request, API_CACHE));
+      event.respondWith(networkFirst(request, API_CACHE).catch(() => emptyResponse(503, 'Offline cache miss')));
       return;
     }
 
-    event.respondWith(networkFirst(request, API_CACHE));
+    event.respondWith(networkFirst(request, API_CACHE).catch(() => emptyResponse(503, 'Offline cache miss')));
     return;
   }
 
@@ -160,16 +188,21 @@ self.addEventListener('fetch', (event) => {
       (async () => {
         const result = await staleWhileRevalidate(request, IMAGES_CACHE);
         if (result) return result;
-        // Avoid hard 503 spam in offline mode when an image was never cached.
         // UI-level fallback image handlers will render a placeholder.
-        return new Response('', { status: 204, statusText: 'No cached image' });
+        return emptyResponse(204, 'No cached image');
       })()
     );
     return;
   }
 
   if (sameOrigin(url)) {
-    event.respondWith(staleWhileRevalidate(request, STATIC_CACHE));
+    event.respondWith(
+      (async () => {
+        const cached = await staleWhileRevalidate(request, STATIC_CACHE);
+        if (cached) return cached;
+        return emptyResponse(204, 'No cached static resource');
+      })().catch(() => emptyResponse(503, 'Offline cache miss'))
+    );
     return;
   }
 });

@@ -1,18 +1,66 @@
 import { openDB, type IDBPDatabase } from 'idb';
-import type { Meal, MealCard } from '../../lib/theMealDb';
+import type { Meal, MealCard, MealIngredient } from '../../lib/theMealDb';
 
 const DB_NAME = 'recipes-pwa-db';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 const FAVORITES_STORE = 'favorites';
 const MEAL_DETAILS_STORE = 'meal_details';
 const RECENTS_STORE = 'recent_meals';
 const QUERY_CACHE_STORE = 'query_cache';
+const SHOPPING_LIST_STORE = 'shopping_list_items';
+const IMPORT_EXPORT_JOBS_STORE = 'import_export_jobs';
 
 type QueryCacheRecord = {
   id: string;
   value: unknown;
   updatedAt: number;
+};
+
+export type ShoppingListItem = {
+  id: string;
+  ingredient: string;
+  measure: string;
+  normalizedKey: string;
+  quantityText: string;
+  checked: boolean;
+  sourceMealIds: string[];
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type ImportRecipeDTO = {
+  recipe: Meal;
+  source: 'json' | 'markdown' | 'paprika';
+};
+
+export type ExportRecipeDTO = Meal;
+
+export type ImportConflictStrategy = 'skip' | 'overwrite';
+
+export type ImportJob = {
+  id: string;
+  source: 'json' | 'markdown' | 'paprika';
+  total: number;
+  imported: number;
+  skipped: number;
+  failed: number;
+  strategy: ImportConflictStrategy;
+  createdAt: number;
+};
+
+// V2 placeholders (no runtime usage in v1).
+export type UserProfile = {
+  id: string;
+  email?: string;
+  displayName?: string;
+};
+
+export type SharedRecipeRef = {
+  id: string;
+  mealId: string;
+  createdByUserId: string;
+  createdAt: number;
 };
 
 let dbPromise: Promise<IDBPDatabase> | null = null;
@@ -35,6 +83,12 @@ async function getDb(): Promise<IDBPDatabase> {
         }
         if (!db.objectStoreNames.contains(QUERY_CACHE_STORE)) {
           db.createObjectStore(QUERY_CACHE_STORE, { keyPath: 'id' });
+        }
+        if (!db.objectStoreNames.contains(SHOPPING_LIST_STORE)) {
+          db.createObjectStore(SHOPPING_LIST_STORE, { keyPath: 'id' });
+        }
+        if (!db.objectStoreNames.contains(IMPORT_EXPORT_JOBS_STORE)) {
+          db.createObjectStore(IMPORT_EXPORT_JOBS_STORE, { keyPath: 'id' });
         }
       }
     });
@@ -66,7 +120,7 @@ async function cacheMealImage(url?: string) {
     const response = await fetch(url, { mode: 'no-cors' });
     await cache.put(url, response);
   } catch {
-    // Ignore image caching failures: we still keep the record in IndexedDB.
+    // Ignore image caching failures.
   }
 }
 
@@ -94,18 +148,6 @@ async function hydrateOfflineThumbnail(meal: Meal): Promise<Meal> {
   return offlineThumbnail ? { ...meal, offlineThumbnail } : meal;
 }
 
-async function getByIdFlexible(store: string, id: string): Promise<Meal | null> {
-  const normalized = String(id ?? '').trim();
-  if (!normalized) return null;
-
-  const direct = (await withDbRetry(async (db) => db.get(store, normalized))) as Meal | undefined;
-  if (direct) return direct;
-
-  const all = (await withDbRetry(async (db) => db.getAll(store))) as Meal[];
-  const found = all.find((item) => String((item as any)?.id ?? '').trim() === normalized);
-  return found ?? null;
-}
-
 function normalizeQueryPart(value: string): string {
   return String(value ?? '').trim().toLowerCase();
 }
@@ -115,11 +157,48 @@ function makeQueryCacheId(kind: 'search' | 'filter' | 'categories', key = ''): s
   return normalized ? `${kind}:${normalized}` : kind;
 }
 
+function normalizeIngredientKey(ingredient: string): string {
+  return String(ingredient ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function mergeMeasures(current: string, incoming: string): string {
+  const parts = new Set<string>();
+  String(current ?? '')
+    .split('|')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .forEach((s) => parts.add(s));
+  String(incoming ?? '')
+    .split('|')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .forEach((s) => parts.add(s));
+  return Array.from(parts).join(' | ');
+}
+
+function asValidMeal(value: unknown): Meal | null {
+  const meal = value as Meal | null;
+  if (!meal || typeof meal.id !== 'string' || !Array.isArray(meal.ingredients)) return null;
+  return meal;
+}
+
+async function getByIdFlexible<T>(store: string, id: string): Promise<T | null> {
+  const normalized = String(id ?? '').trim();
+  if (!normalized) return null;
+
+  const direct = (await withDbRetry(async (db) => db.get(store, normalized))) as T | undefined;
+  if (direct) return direct;
+
+  const all = (await withDbRetry(async (db) => db.getAll(store))) as Array<T & { id?: string }>;
+  const found = all.find((item) => String(item?.id ?? '').trim() === normalized);
+  return found ?? null;
+}
+
 async function getOfflineThumbnailForMeal(id: string): Promise<string | undefined> {
   const [details, favorite, recent] = await Promise.all([
-    getByIdFlexible(MEAL_DETAILS_STORE, id),
-    getByIdFlexible(FAVORITES_STORE, id),
-    getByIdFlexible(RECENTS_STORE, id)
+    getByIdFlexible<Meal>(MEAL_DETAILS_STORE, id),
+    getByIdFlexible<Meal>(FAVORITES_STORE, id),
+    getByIdFlexible<Meal>(RECENTS_STORE, id)
   ]);
 
   return details?.offlineThumbnail ?? favorite?.offlineThumbnail ?? recent?.offlineThumbnail;
@@ -161,7 +240,7 @@ export async function upsertMealDetails(meal: Meal) {
 }
 
 export async function getMealDetails(id: string): Promise<Meal | null> {
-  return getByIdFlexible(MEAL_DETAILS_STORE, id);
+  return getByIdFlexible<Meal>(MEAL_DETAILS_STORE, id);
 }
 
 export async function saveFavorite(meal: Meal) {
@@ -169,9 +248,7 @@ export async function saveFavorite(meal: Meal) {
   if (!id) return;
   const hydratedMeal = await hydrateOfflineThumbnail(meal);
   await withDbRetry(async (db) => {
-    // Store full meal details for offline details page.
     await db.put(FAVORITES_STORE, { ...hydratedMeal, id });
-    // Also keep it in the details cache.
     await db.put(MEAL_DETAILS_STORE, { ...hydratedMeal, id });
   });
   await addRecentMeal(hydratedMeal);
@@ -183,12 +260,11 @@ export async function removeFavorite(id: string) {
 }
 
 export async function getFavorite(id: string): Promise<Meal | null> {
-  return getByIdFlexible(FAVORITES_STORE, id);
+  return getByIdFlexible<Meal>(FAVORITES_STORE, id);
 }
 
 export async function getAllFavorites(): Promise<Meal[]> {
   const all = (await withDbRetry(async (db) => db.getAll(FAVORITES_STORE))) as Meal[];
-  // Sort newest? IndexedDB doesn't guarantee order; keep deterministic by title.
   return all
     .filter((m) => String(m?.id ?? '').trim().length > 0)
     .sort((a, b) => a.title.localeCompare(b.title));
@@ -239,4 +315,180 @@ export async function getCachedMealCards(kind: 'search' | 'filter', key: string)
   const meals = value as MealCard[];
   const clean = meals.filter((m) => String(m?.id ?? '').trim().length > 0);
   return enrichMealCardsWithOfflineThumb(clean);
+}
+
+export async function getShoppingListItems(): Promise<ShoppingListItem[]> {
+  const all = (await withDbRetry(async (db) => db.getAll(SHOPPING_LIST_STORE))) as ShoppingListItem[];
+  return all.sort((a, b) => a.createdAt - b.createdAt || a.ingredient.localeCompare(b.ingredient));
+}
+
+export async function upsertShoppingListItem(input: Omit<ShoppingListItem, 'createdAt' | 'updatedAt'>): Promise<void> {
+  const now = Date.now();
+  const existing = await getByIdFlexible<ShoppingListItem>(SHOPPING_LIST_STORE, input.id);
+  const payload: ShoppingListItem = {
+    ...input,
+    createdAt: existing?.createdAt ?? now,
+    updatedAt: now
+  };
+  await withDbRetry(async (db) => db.put(SHOPPING_LIST_STORE, payload));
+}
+
+export async function setShoppingItemChecked(id: string, checked: boolean): Promise<void> {
+  const item = await getByIdFlexible<ShoppingListItem>(SHOPPING_LIST_STORE, id);
+  if (!item) return;
+  await upsertShoppingListItem({ ...item, checked });
+}
+
+export async function removeShoppingListItem(id: string): Promise<void> {
+  await withDbRetry(async (db) => db.delete(SHOPPING_LIST_STORE, id));
+}
+
+export async function clearCompletedShoppingItems(): Promise<void> {
+  const all = await getShoppingListItems();
+  await withDbRetry(async (db) => {
+    const tx = db.transaction(SHOPPING_LIST_STORE, 'readwrite');
+    for (const item of all) {
+      if (item.checked) await tx.store.delete(item.id);
+    }
+    await tx.done;
+  });
+}
+
+export async function clearAllShoppingListItems(): Promise<void> {
+  await withDbRetry(async (db) => {
+    await db.clear(SHOPPING_LIST_STORE);
+  });
+}
+
+export async function addMealIngredientsToShoppingList(mealOrId: Meal | string): Promise<{ added: number; merged: number }> {
+  let meal: Meal | null = null;
+
+  if (typeof mealOrId === 'string') {
+    const trimmed = mealOrId.trim();
+    if (!trimmed) return { added: 0, merged: 0 };
+    meal = (await getMealDetails(trimmed)) ?? (await getFavorite(trimmed));
+  } else {
+    meal = mealOrId;
+  }
+
+  const safeMeal = asValidMeal(meal);
+  if (!safeMeal) return { added: 0, merged: 0 };
+
+  let added = 0;
+  let merged = 0;
+
+  for (const ing of safeMeal.ingredients) {
+    const ingredient = String(ing?.ingredient ?? '').trim();
+    if (!ingredient) continue;
+
+    const normalizedKey = normalizeIngredientKey(ingredient);
+    const existing = (await withDbRetry(async (db) => db.get(SHOPPING_LIST_STORE, normalizedKey))) as ShoppingListItem | undefined;
+
+    const sourceMealIds = Array.from(new Set([...(existing?.sourceMealIds ?? []), safeMeal.id]));
+    const measure = mergeMeasures(existing?.measure ?? '', String(ing?.measure ?? '').trim());
+
+    const payload: Omit<ShoppingListItem, 'createdAt' | 'updatedAt'> = {
+      id: normalizedKey,
+      ingredient,
+      normalizedKey,
+      measure,
+      quantityText: measure,
+      checked: existing?.checked ?? false,
+      sourceMealIds
+    };
+
+    await upsertShoppingListItem(payload);
+    if (existing) merged += 1;
+    else added += 1;
+  }
+
+  return { added, merged };
+}
+
+export async function exportShoppingListJson(): Promise<string> {
+  const items = await getShoppingListItems();
+  return JSON.stringify(items, null, 2);
+}
+
+function escapeCsv(value: string): string {
+  const needsQuotes = /[",\n]/.test(value);
+  const escaped = value.replace(/"/g, '""');
+  return needsQuotes ? `"${escaped}"` : escaped;
+}
+
+export async function exportShoppingListCsv(): Promise<string> {
+  const items = await getShoppingListItems();
+  const header = ['ingredient', 'quantity', 'checked', 'sourceMealIds'];
+  const lines = items.map((item) =>
+    [
+      escapeCsv(item.ingredient),
+      escapeCsv(item.quantityText || item.measure),
+      item.checked ? 'true' : 'false',
+      escapeCsv(item.sourceMealIds.join('|'))
+    ].join(',')
+  );
+  return [header.join(','), ...lines].join('\n');
+}
+
+export async function upsertImportExportJob(job: ImportJob): Promise<void> {
+  await withDbRetry(async (db) => db.put(IMPORT_EXPORT_JOBS_STORE, job));
+}
+
+export async function getImportExportJobs(limit = 20): Promise<ImportJob[]> {
+  const all = (await withDbRetry(async (db) => db.getAll(IMPORT_EXPORT_JOBS_STORE))) as ImportJob[];
+  return all.sort((a, b) => b.createdAt - a.createdAt).slice(0, limit);
+}
+
+export async function saveImportedRecipes(
+  recipes: ImportRecipeDTO[],
+  strategy: ImportConflictStrategy = 'skip'
+): Promise<{ imported: number; skipped: number; failed: number }> {
+  let imported = 0;
+  let skipped = 0;
+  let failed = 0;
+
+  for (const item of recipes) {
+    try {
+      const meal = asValidMeal(item.recipe);
+      if (!meal || !meal.id) {
+        failed += 1;
+        continue;
+      }
+
+      const existing = await getMealDetails(meal.id);
+      if (existing && strategy === 'skip') {
+        skipped += 1;
+        continue;
+      }
+
+      await upsertMealDetails(meal);
+      imported += 1;
+    } catch {
+      failed += 1;
+    }
+  }
+
+  return { imported, skipped, failed };
+}
+
+export async function getAllStoredMealsForExport(): Promise<ExportRecipeDTO[]> {
+  const [favorites, recents, details] = await Promise.all([
+    getAllFavorites(),
+    getRecentMeals(250),
+    withDbRetry(async (db) => db.getAll(MEAL_DETAILS_STORE)) as Promise<Meal[]>
+  ]);
+
+  const byId = new Map<string, Meal>();
+  for (const meal of [...details, ...recents, ...favorites]) {
+    if (!meal?.id) continue;
+    byId.set(meal.id, meal);
+  }
+
+  return Array.from(byId.values()).sort((a, b) => a.title.localeCompare(b.title));
+}
+
+export function mapIngredientLines(ingredients: MealIngredient[]): string[] {
+  return ingredients
+    .map((ing) => `${String(ing.measure ?? '').trim()} ${String(ing.ingredient ?? '').trim()}`.trim())
+    .filter(Boolean);
 }

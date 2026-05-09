@@ -11,15 +11,17 @@ export function RecipeCard({
   meal,
   isFavorite,
   onToggleFavorite,
-  onOpenDetails
+  onOpenDetails,
+  onAddToShoppingList
 }: {
   meal: MealCard;
   isFavorite: boolean;
   onToggleFavorite: () => void;
   onOpenDetails: () => void;
+  onAddToShoppingList?: () => void;
 }) {
   return (
-    <Card className="premium-panel group overflow-hidden rounded-2xl">
+    <Card className="premium-panel motion-card group mx-auto w-full max-w-md overflow-hidden rounded-2xl transition-all duration-300 sm:max-w-none">
       <div className="relative aspect-[4/3] w-full bg-white/5">
         <img
           src={meal.offlineThumbnail ?? meal.thumbnail}
@@ -66,6 +68,17 @@ export function RecipeCard({
             {isFavorite ? 'Favorited' : 'Favorite'}
           </Button>
         </div>
+        {onAddToShoppingList ? (
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={onAddToShoppingList}
+            className="h-9 w-full rounded-lg text-sm font-semibold"
+            aria-label={`Add ${meal.title} ingredients to shopping list`}
+          >
+            Add to list
+          </Button>
+        ) : null}
       </CardContent>
     </Card>
   );
