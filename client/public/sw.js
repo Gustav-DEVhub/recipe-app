@@ -9,7 +9,7 @@
 //   - Images (stale-while-revalidate)
 // - Offline fallback for navigation requests
 
-const CACHE_VERSION = 'recipes-pwa-cache-v5';
+const CACHE_VERSION = 'recipes-pwa-cache-v6';
 
 const PRECACHE_URLS = [
   '/',
@@ -18,7 +18,9 @@ const PRECACHE_URLS = [
   '/offline.html',
   '/manifest.webmanifest',
   '/icons/icon-192.png',
-  '/icons/icon-512.png'
+  '/icons/icon-512.png',
+  '/screenshots/recipes-desktop-wide.png',
+  '/screenshots/recipes-mobile.png'
 ];
 
 const API_CACHE = `${CACHE_VERSION}-api`;

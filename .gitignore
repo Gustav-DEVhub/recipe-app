@@ -14,3 +14,7 @@ build/
 # Archivos de sistema
 .DS_Store
 Thumbs.db
+
+# Temporary browser profiles used for headless screenshot generation
+.tmp-edge-profile/
+.tmp-edge-profile-mobile/
