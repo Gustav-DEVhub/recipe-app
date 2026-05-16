@@ -13,16 +13,16 @@
   ],
   "screenshots": [
     {
-      "src": "/screenshots/recipes-desktop-wide.svg",
+      "src": "/screenshots/recipes-desktop-wide.png",
       "sizes": "1280x720",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "label": "Recipes PWA desktop view",
       "form_factor": "wide"
     },
     {
-      "src": "/screenshots/recipes-mobile.svg",
+      "src": "/screenshots/recipes-mobile.png",
       "sizes": "390x844",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "label": "Recipes PWA mobile view"
     }
   ]
