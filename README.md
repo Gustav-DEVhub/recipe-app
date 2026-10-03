@@ -17,10 +17,34 @@ A Progressive Web App (PWA) for recipes powered by TheMealDB, with a React + Vit
 
 ## Tech Stack
 
-- Frontend: React, Vite, TypeScript, Tailwind CSS v3, shadcn/ui, TanStack Query, sonner.
-- Backend: Node.js, Express, TypeScript, helmet, cors, compression.
-- Offline storage: IndexedDB (`idb`).
-- Data source: TheMealDB v1 (through backend proxy).
+Verified against each workspace's `package.json`:
+
+**Frontend (`client/`)**
+
+- React 19 + React DOM
+- Vite 8 + TypeScript 6
+- Tailwind CSS v3 (PostCSS + autoprefixer)
+- shadcn/ui (Radix UI `react-dialog` and `react-slot`, `class-variance-authority`, `clsx`, `tailwind-merge`)
+- TanStack Query v5 (server state) and `sonner` (toasts)
+- `react-router-dom` v7 (routing)
+- `lucide-react` (icons)
+- `idb` (IndexedDB wrapper)
+
+**Backend (`server/`)**
+
+- Node.js + Express 5
+- TypeScript 6 (run with `tsx`)
+- `helmet`, `cors`, `compression`, `dotenv`
+
+**Data & PWA**
+
+- Data source: TheMealDB v1 (through backend proxy)
+- PWA: manual service worker + web manifest (no Workbox)
+
+**Tooling & Deployment**
+
+- Monorepo dev scripts with `concurrently`
+- Vercel (frontend + serverless API catch-all); client also fits Netlify/Vercel
 
 ## Project Structure
 
