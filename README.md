@@ -183,14 +183,6 @@ MEALDB_API_KEY=1
 - `https://your-domain.vercel.app/api/categories` returns JSON.
 - Search, categories, details, and favorites work without exposing API keys.
 
-## Post-generation Checklist
-
-- Replace placeholder icons in `client/public/icons`.
-- Finalize brand colors and visual style.
-- Validate PWA install on Android/Desktop.
-- Confirm cache strategy for expected traffic.
-- Run offline favorites smoke tests.
-
 ## Roadmap V2 (Planned, not active in v1)
 
 - No authentication, Supabase, OAuth, or cloud sync is active in the current v1 build.
